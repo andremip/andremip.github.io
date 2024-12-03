@@ -1,0 +1,9 @@
+Autores: André Miguel Pérez Sánchez y Miguel Ángel Jiménez Montemayor
+Fecha: 07/01/2023
+
+Información adicional:
+	- En caso de que los disparos no vayan a donde se ha hecho clik, refrescar la página
+	- Se ha añadido un misil verde que al principio va despacio y luego más rápido
+	- Se ha añadido una onda expansiva que sólo se puede usar una vez por cada partida 
+	(se podrá volver a usar una vez pierdas, una vez las 6 ciudades se destruyan). Para 
+	su activación, se debe presionar la letra "s", como indica la interfaz.

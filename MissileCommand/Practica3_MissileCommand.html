@@ -1,0 +1,1440 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title> Missile Command </title>
+        <link href="archivoCSS/estilo.css" rel="stylesheet" />
+        <meta charset="UTF-8" />
+    </head>
+
+    
+
+    <body style="background-color: #000000;">
+        <noscript>
+            <p>Esta página requiere JavaScript</p>
+        </noscript>
+
+        <h3 align="center" style="color: antiquewhite; font-family:'courier';"> Missile Command - André Miguel Pérez Sánchez</h3>
+        <div align="center"><canvas id="lienzo" width=756 height=680></canvas></div>
+
+        <audio id="explosion"><source src="media/explosion.mp3"></audio>
+        <audio id="disparo"><source src="media/disparo.mp3"></audio>
+        <audio id="muereDestino"><source src="media/muereDestino.mp3"></audio>
+        <audio id="alien"><source src="media/alien.mp3"></audio>
+        <audio id="tocado"><source src="media/tocado.mp3"></audio>
+        <audio id="avionDisparo"><source src="media/avionDisparo.mp3"></audio>
+
+        <script src="archivoJS/easing.js"></script>
+        <script>
+            ///////////////////////////////////////////////////////////////////////////
+            // AUTORES: André Miguel Pérez Sánchez y Miguel Ángel Jiménez Montemayor //
+            ///////////////////////////////////////////////////////////////////////////
+
+
+            /////////////////////////////////////////////////////////////////////////////////////////////
+            //_________________________________________________________________________________________//
+            /***********************      VARIABLES Y CONSTANTES        ********************************/
+            //_________________________________________________________________________________________//
+            /////////////////////////////////////////////////////////////////////////////////////////////
+
+               
+            //Mundo
+            var miMundo;
+            var interfaz;
+            var nivel = 1;
+
+            //Velocidad a la que se actualizan los elementos del juego, no confundir con la velocidad a la que se dibujan
+            var actps = 12; 
+            var comenzado = false;
+            var finalizado = false;
+            var reiniciable = false;
+
+            /********* EVENTOS *********/
+            window.addEventListener("keydown", manejaTeclado, false);
+            window.onbeforeunload = function () {
+                window.scrollTo(0, 0);
+            }
+
+            //LIENZO Y CONTEXTO
+            var lienzo = document.getElementById('lienzo');
+            var lienzoPos = lienzo.getBoundingClientRect();
+            var maxX = lienzo.width;
+            var maxY = lienzo.height; 
+            var contexto = lienzo.getContext('2d');
+
+            lienzo.addEventListener('click', manejaRaton, false);
+
+            //************* CARGA DEL AUDIO *************
+            //Explosión
+            var audioExplosion = document.getElementById("explosion");
+            var sonidosExplosion = [];
+            llenarArrayAudio(sonidosExplosion, audioExplosion)
+            var indiceExplosion = 0;
+            //Disparo
+            var audioDisparo = document.getElementById("disparo");
+            audioDisparo.volume = 0.0
+            var sonidosDisparo = [];
+            llenarArrayAudio(sonidosDisparo, audioDisparo)
+            var indiceDisparo = 0;
+            //Alien
+            var audioAlien = document.getElementById("alien");
+            var sonidosAlien = [];
+            llenarArrayAudio(sonidosAlien, audioAlien);
+            var indiceAlien = 0;
+            //Muere un destino
+            var audioMuereDestino = document.getElementById("muereDestino");
+            var sonidosMuerteDestino = [];
+            llenarArrayAudio(sonidosMuerteDestino, audioMuereDestino);
+            var indiceMuerteDestino = 0;
+            //Sonido que suena cuando suma puntuación
+            var audioTocado = document.getElementById("tocado");
+            var sonidosTocado = [];
+            llenarArrayAudio(sonidosTocado, audioTocado);
+            var indiceTocado = 0;
+
+            var avionDisparo = document.getElementById("avionDisparo");
+            avionDisparo.volume = 0.3;
+
+            //BOLAS DE FUEGO
+            const maxRadius = 32;                 //Radio máximo
+            const bolaSpeed = 2;                  //Velocidad a la que crece y decrece de radio la bola de fuego
+
+            //MISILES ENEMIGOS
+            const misilMinSpeed = 8;
+            const topeSpeed = 25;
+            const minTiempoMisil = 8;             //Mínimo de tiempo en segundos entre que sale un misil y otro
+            const maxTiempoMisil = 35;             //Máximo de tiempo en segundos entre que sale un misil y otro
+            const topeTiempo = 20;
+            var misilSpeed = 8;                   //Velocidad a la que cubre su trayectoria
+            var tiempoActual = maxTiempoMisil;
+
+
+            const minMisiles = 15;                //Mínimo de misiles que salen
+            const maxMisiles = 28;                //Máximo de misiles que salen
+
+
+            //DISPAROS
+            const disparoSpeed = 60;
+            const enfriamiento = 1000; //Medio segundo entre disparo y disparo
+
+            /*Array de colores para la explosión de la bola de fuego. 
+            "colorActual" adquirirá un valor que se usará para indicar una posición del array*/
+            var colorActual = 0;
+            var coloresRandom = ["#596988", "#8E8E8E", "#888558", "#8B5A88", "#8C5B5B", "#5B888D", "#658A5B"]
+
+            //DESTINOS DE LOS MISILES
+            var arrayDestinoMisiles = [{tipo:"torre",id:0,x:64,y:612}, {tipo:"ciudad",id:0,x:132,y:624}, 
+                {tipo:"ciudad",id:1,x:212,y:628}, {tipo:"ciudad",id:2,x:284,y:631},
+                {tipo:"torre",id:1,x:64+303,y:612}, {tipo:"ciudad",id:3,x:441,y:625},
+                {tipo:"ciudad",id:4,x:535,y:616}, {tipo:"ciudad",id:5,x:618,y:628},
+                {tipo:"torre",id:2,x:64+303+348,y:612}];
+
+            //SPRITES
+            var spriteID = 0;
+            var arraySprites = [];
+
+    
+            /////////////////////////////////////////////////////////////////////////////////////////////
+            //_________________________________________________________________________________________//
+            /***********************          INICIALIZACIÓN            ********************************/
+            //_________________________________________________________________________________________//
+            /////////////////////////////////////////////////////////////////////////////////////////////
+
+            var graficosCargados = false;
+            cargaImagen();
+            //Se inicializa el bucle de pintado con requestAnimationFrame
+            requestAnimationFrame(dibujado);
+            //Se inicializa el bucle de movimiento
+            var tempActualizado = setInterval(actualiza, 1000/actps);
+
+
+            /////////////////////////////////////////////////////////////////////////////////////////////
+            //_________________________________________________________________________________________//
+            /***********************            CONSTRUCTORES           ********************************/
+            //_________________________________________________________________________________________//
+            /////////////////////////////////////////////////////////////////////////////////////////////
+
+            function constructorMundo(){
+                //Arrays con sus respectivos contadores
+                this.arrayBolas = [];
+                this.arrayMisiles = [];
+                this.arrayCiudades = [];
+                this.arrayTorresMunicion = [];
+                this.arrayDisparos = [];
+                this.arrayDestinosVivos = [];
+                this.nBolas = 0;
+                this.nMisiles = 0;
+                this.nDisparos = 0;
+                this.ciudadesSupervivientes = 0;
+
+                this.totalMisiles = minMisiles;                                             //Total de misiles en la partida actual
+                this.contadorMisiles = 0;                                           //Número de misiles que ya han salido
+
+                //Marciano
+                this.marciano;
+                this.marcianoSpeed = 1.15*misilSpeed;                                //píxeles por actualizado
+                this.marcianoMisil = Math.floor(Math.random()*(this.totalMisiles-1)+1);   //Saldrá en un momento determinado al mismo tiempo que un misil
+                this.marcianoAparecido = false;
+
+                //Avion
+                this.avion;
+                this.avionSpeed = 0.80*misilSpeed;                                   //píxeles por actualizado
+                this.avionMisil = Math.floor(Math.random()*(this.totalMisiles-1)+1);      //Saldrá en un momento determinado al mismo tiempo que un misil
+                this.avionAparecido = false;
+
+                this.onda = new constructorOnda(this);
+                
+                //Función de dibujado de todos sus objetos
+                this.dibujado = function(){
+                    contexto.clearRect(0, 0, maxX, maxY);
+                    for(var i = 0; i < this.arrayMisiles.length; i++){
+                        this.arrayMisiles[i].dibujado();
+                    }
+                    this.marciano.dibujado();
+                    this.avion.dibujado();
+                    this.onda.dibujado();
+                    for(var i = 0; i < this.arrayDisparos.length; i++){
+                        this.arrayDisparos[i].dibujado();
+                    }
+                    for(var i = 0; i < this.arrayBolas.length; i++){
+                        this.arrayBolas[i].dibujado();
+                    }
+                    //Se dibuja el terreno amarillo de abajo
+                    var escala = 0.74;
+                    arraySprites[0].dibujado(-3, maxY-arraySprites[0].alto*escala, escala);
+                    arraySprites[1].dibujado(maxX-arraySprites[1].ancho*escala, maxY-arraySprites[1].alto*escala, escala);
+
+                    for(var i = 0; i < this.arrayCiudades.length; i++){
+                        if(this.arrayCiudades[i].estado == 1)
+                            this.arrayCiudades[i].dibujado();
+                    }
+
+                    for(var i = 0; i < this.arrayTorresMunicion.length; i++){
+                        this.arrayTorresMunicion[i].dibujado();
+                    }
+                }
+
+                //Función de actualizado de todos sus objetos
+                this.actualiza = function(){
+                    //Gestiona los arrays de tal manera que no haya huecos en los arrays vacíos
+                    this.gestionaArrayBolas();
+                    this.gestionaArrayMisiles();
+                    this.gestionaArrayDisparos();
+                    this.gestionaArrayDestinos();
+                    
+                    //Se actualizan todos los objetos del juego
+                    for(var i = 0; i < this.arrayMisiles.length; i++){
+                        this.arrayMisiles[i].actualiza();
+                    }
+                    this.marciano.actualiza();
+                    this.avion.actualiza();
+                    this.onda.actualiza();
+                    if(this.onda.estado == 1){
+                        for(var j = 0; j < this.arrayMisiles.length; j++){
+                            this.onda.colision(this.arrayMisiles[j]);
+                        }
+                    }
+                    for(var i = 0; i < this.arrayDisparos.length; i++){
+                        this.arrayDisparos[i].actualiza();
+                    }
+                    for(var i = 0; i < this.arrayBolas.length; i++){
+                        this.arrayBolas[i].actualiza();
+                        for(var j = 0; j < this.arrayMisiles.length; j++){
+                            this.arrayBolas[i].colision(this.arrayMisiles[j]);
+                        }
+                    }
+                    for(var i = 0; i < this.arrayTorresMunicion.length; i++){
+                        this.arrayTorresMunicion[i].actualiza();
+                    }
+                    if(this.contadorMisiles == this.marcianoMisil && this.marcianoAparecido == false){
+                        this.marcianoAparecido = true;
+                        this.marciano.nacer();
+                    }
+                    if(this.contadorMisiles == this.avionMisil && this.avionAparecido == false){
+                        this.avionAparecido = true;
+                        this.avion.nacer();
+                    }
+                }
+
+                //GESTIÓN DE LOS ARRAYS DE OBJETOS       
+
+                /*Gestiona la longitud del array de las bolas de fuego para que no 
+                haya espacios con bolas de fuego apagadas*/
+                this.gestionaArrayBolas = function(){
+                    var t = 0;
+                    var auxBolas = [];
+                    for(var i = 0; i < this.arrayBolas.length; i++){
+                        if(this.arrayBolas[i].estado == 1){
+                            auxBolas[t] = this.arrayBolas[i];
+                            t++;
+                        }
+                    }
+                    this.nBolas = 0;
+                    this.arrayBolas = [];
+                    for(var i = 0; i < auxBolas.length; i++){
+                        this.arrayBolas[i] = auxBolas[i];
+                        this.nBolas++;
+                    }
+                }
+
+                /*Gestiona la longitud del array de los misiles para que no 
+                haya espacios con misiles muertos*/
+                this.gestionaArrayMisiles = function(){
+                    var t = 0;
+                    var auxMisiles = [];
+                    for(var i = 0; i < this.arrayMisiles.length; i++){
+                        if(this.arrayMisiles[i].estado == 1){
+                            auxMisiles[t] = this.arrayMisiles[i];
+                            t++;
+                        }
+                    }
+                    this.nMisiles = 0;
+                    this.arrayMisiles = [];
+                    for(var i = 0; i < auxMisiles.length; i++){
+                        this.arrayMisiles[i] = auxMisiles[i];
+                        this.nMisiles++;
+                    }
+                }
+
+                this.gestionaArrayDisparos = function(){
+                    var t = 0;
+                    var auxDisparos = [];
+                    for(var i = 0; i < this.arrayDisparos.length; i++){
+                        if(this.arrayDisparos[i].estado == 1){
+                            auxDisparos[t] = this.arrayDisparos[i];
+                            t++;
+                        }
+                    }
+                    this.nDisparos = 0;
+                    this.arrayDisparos = [];
+                    for(var i = 0; i < auxDisparos.length; i++){
+                        this.arrayDisparos[i] = auxDisparos[i];
+                        this.nDisparos++;
+                    }
+                }
+
+                this.gestionaArrayDestinos = function(){
+                    this.arrayDestinosVivos = [];
+                    var destinoAux;
+                    var nAux = 0;
+                    for(var i = 0; i < arrayDestinoMisiles.length; i++){
+                        destinoAux = arrayDestinoMisiles[i];
+                        if(destinoAux.tipo == "torre"){
+                            if(this.arrayTorresMunicion[destinoAux.id].estado == 1){
+                                this.arrayDestinosVivos[nAux] = destinoAux;
+                                nAux++;
+                            }
+                        }
+                        else{
+                            if(this.arrayCiudades[destinoAux.id].estado == 1){
+                                this.arrayDestinosVivos[nAux] = destinoAux;
+                                nAux++;
+                            }
+                        }
+                    }
+                }
+            }
+
+            function constructorInterfaz(mundo){
+                this.x = 0;
+                this.y = 0;
+                this.ancho = maxX;
+                this.alto = 30;
+                this.puntuacion = 0;
+                this.puntuacionMaxima = this.puntuacion;
+
+                //Puntuación de cada objeto
+                this.misil = 25;
+                this.municion = 10;
+                this.ciudad = 100;
+                this.avion = 100;
+                this.marciano = 200;
+                this.texto = "Press ENTER to start";
+                this.texto2 = "";
+                this.textoNivel = "LVL " + nivel;
+                this.textoOnda = "";
+
+                this.dibujado = function(){
+                    contexto.fillStyle = "black"
+                    contexto.fillRect(this.x, this.y, this.ancho, 27);
+
+                    contexto.font = "30px Arial";
+                    contexto.fillStyle = "#FF0000"
+                    
+                    contexto.fillText(this.puntuacion, 60, 25);
+                    contexto.fillText(this.puntuacionMaxima, 400, 25);
+                    contexto.fillText(this.textoNivel, 200, 25);
+
+                    contexto.fillText(this.texto, 220, maxY/2);
+                    contexto.fillText(this.texto2, 300, maxY/2-60);
+
+                    contexto.font = "20px Arial";
+                    if(mundo.onda.activada == false){
+                        this.textoOnda = "Press 'S' for Super ATK";
+                        contexto.fillText(this.textoOnda, this.ancho*3.5/5, 25); 
+                    }
+                    else{
+                        this.textoOnda = "Super ATK used";
+                        contexto.fillText(this.textoOnda, this.ancho*3.9/5, 25); 
+                    }
+                    
+                }
+            }
+
+            /*Contructor de las bolas de fuego, tienen una posición y un mundo donde se encuentran*/
+            function constructorBola(x, y, mundo){
+                this.x = x;
+                this.y = y;
+                this.radius = 0;
+                this.speed = bolaSpeed;
+                this.estado = 1;    //1 es que esta viva y 0 es que ha desaparecido
+                this.mundo = mundo;
+
+                audioManager("explosion")
+
+                this.dibujado = function(){
+                    contexto.beginPath();
+                    contexto.arc(this.x, this.y, this.radius, 0*Math.PI, 2*Math.PI, false);
+                    contexto.closePath();
+                    contexto.fillStyle = coloresRandom[colorActual];    "#B6A076"; 
+                    contexto.fill();
+                    contexto.fillStyle = "#000000";
+                }
+
+                this.actualiza = function(){
+                    this.radius += this.speed;
+                    if(this.radius >= maxRadius){
+                        this.speed = -1*this.speed;
+                    }
+                    else if(this.radius <= 0+Math.abs(this.speed) && this.speed < 0){ this.speed = 0; this.estado = 0; }
+                }
+            }
+
+            /*Construcotr de la onda expansiva. Tiene una posición inicial, su mundo y su radio*/
+            function constructorOnda(mundo){
+                this.mundo = mundo;
+                this.estado = 0;
+
+                this.x = maxX/2;
+                this.y = 1200;
+                this.radius0 = 555;
+                this.radiusf = 1200;
+                this.radius;
+                this.speed = 50;
+                this.p;
+                this.totalPasos = this.radiusf/this.speed
+                this.activada = false;
+
+                //Controlar que no se active dos veces
+                this.activar = function(){
+                    if(this.activada == false){
+                        this.estado = 1;
+                        this.radius = this.radius0;
+                        this.p = 0;
+                        this.activada = true;
+                    }
+                }
+
+                this.actualiza = function(){
+                    if(this.estado == 1){
+                        if(this.p <= this.totalPasos){
+                            //Crece de manera cúbica
+                            this.radius = easeInCubic(this.p, this.radius0, this.radiusf-this.radius0, this.totalPasos);
+                            console.log(this.radius);
+                            this.p++;
+                        }
+                        else{
+                            this.radius = this.radiusf;
+                            this.estado = 0;
+                        }
+                    }
+                }
+
+                this.dibujado = function(){
+                    if(this.estado == 1){
+                        //Punto de color en la cabeza del disparo
+                        var anterior = contexto.lineWidth;
+                        contexto.lineWidth = 3.5;
+                        contexto.strokeStyle = "#0804fc"; 
+                        contexto.beginPath();
+                        contexto.arc(this.x, this.y, this.radius, 0, 2*Math.PI, false);
+                        contexto.closePath();
+                        contexto.stroke();
+                        contexto.lineWidth = anterior;
+                    }
+                }
+            }
+
+            //Método para detectar colisiones pasándole un enemigo como entrada. Detecta misiles, aliens y aviones.
+            function colisionGenerica(misil){
+                if(colisionCircunferencia(misil.x, misil.y, this.x, this.y, this.radius) == true){
+                    misil.estado = 0;
+                    this.mundo.arrayBolas[this.mundo.nBolas] = new constructorBola(misil.x, misil.y, this.mundo);
+                    this.mundo.nBolas++;
+                    misil.x0 = -2;
+                    misil.y0 = -2;
+                    misil.x = -2;
+                    misil.y = -2;
+                
+                    interfaz.puntuacion +=  interfaz.misil;
+                    audioManager("tocado")
+		        }       
+                if(this.mundo.marciano.estado == 1){
+                    if(distancia(this.x, this.y, (this.mundo.marciano.x+this.mundo.marciano.ancho/2), 
+                    (this.mundo.marciano.y+ this.mundo.marciano.alto/2)) <= (this.radius+(this.mundo.marciano.alto+this.mundo.marciano.ancho)/2)){
+                        if( this.mundo.marciano.colision(this) == true){
+                            this.mundo.marciano.estado = 0;
+                            this.mundo.marciano.x = -90;
+
+                            this.mundo.arrayBolas[this.mundo.nBolas] = new constructorBola(this.mundo.marciano.tocadoX, this.mundo.marciano.tocadoY, this.mundo);
+                            this.mundo.nBolas++;
+
+                            interfaz.puntuacion += interfaz.marciano;
+                            audioManager("tocado")
+                        }
+                    }  
+                }   
+                if(this.mundo.avion.estado == 1){  
+                    if(distancia(this.x, this.y, (this.mundo.avion.x+this.mundo.avion.ancho/2), 
+                    (this.mundo.avion.y+ this.mundo.avion.alto/2)) <= (this.radius+( this.mundo.avion.alto+this.mundo.avion.ancho)/2)){
+                        if( this.mundo.avion.colision(this) == true){
+
+                            this.mundo.avion.estado = 0;
+                            this.mundo.avion.x = -90;
+
+                            this.mundo.arrayBolas[this.mundo.nBolas] = new constructorBola(this.mundo.avion.tocadoX, this.mundo.avion.tocadoY, this.mundo);
+                            this.mundo.nBolas++;
+
+                            interfaz.puntuacion += interfaz.avion;
+                            audioManager("tocado")
+                        }  
+                    }
+                }   
+            }
+
+            //Se añade a ambos construcotres este nuevo método de colisión
+            constructorBola.prototype.colision = colisionGenerica;
+            constructorOnda.prototype.colision = colisionGenerica;
+
+            /*Constructor de los misiles, podrán tener una posición inicial definida al igual que un objetivo definido, pero siempre 
+            se encontrarán en un mundo*/
+            function constructorMisil(x0, y0, objetivo, mundo){
+                this.mundo = mundo;
+                //Posición final
+                // this.xf = Math.floor(Math.random()*maxX);
+                if(objetivo === undefined){
+                    this.destino = Math.floor(Math.random()* mundo.arrayDestinosVivos.length);
+                }else{ this.destino = objetivo; }
+                this.destinoTipo =  mundo.arrayDestinosVivos[this.destino].tipo;
+                this.destinoId =  mundo.arrayDestinosVivos[this.destino].id;
+                this.xf =  mundo.arrayDestinosVivos[this.destino].x;
+                this.yf =  mundo.arrayDestinosVivos[this.destino].y;
+
+
+                //Si es lineal o acelerado
+                this.especial = (Math.random() < 0.2) ? true: false;
+                this.speed = (this.especial == false) ? misilSpeed : 0.8*misilSpeed;
+                this.estado = 1;
+
+                if(x0 !== undefined){
+                    this.speed = this.speed*3/4;
+                }
+                //Posición inicial
+                if(x0===undefined){
+                    this.x0 = Math.floor(Math.random()*maxX);
+                } 
+                else{
+                    this.x0 = x0;
+                }
+                if(y0===undefined){
+                    this.y0 = 0;
+                } 
+                else{
+                    this.y0 = y0;
+                }
+                //Posición actual
+                this.x = this.x0;
+                this.y = this.y0;
+                var dist = distancia(this.xf, this.yf, this.x0, this.y0);
+                //Paso por la que va la animacion del misil
+                this.p = 0;
+                this.totalPasos = dist/this.speed
+
+                this.kill = function(){
+                    if(this.destinoTipo == "torre"){
+                        //Esta función pone el estado de la torre y todas sus municiones a muertas, a "0"
+                        mundo.arrayTorresMunicion[this.destinoId].kill();
+                    }
+                    else{
+                        mundo.arrayCiudades[this.destinoId].estado = 0;
+                    }
+                    audioManager("muereDestino")
+                }
+
+                /*Se ha calculado previamente el tiempo que va a tardar en hacer su recorrido (totalPasos). En base a ese tiempo, y el tiempo actual en el que se encuentra,
+                se calcula la posición actual por la que iría el misil*/
+                this.actualiza = function(){
+                    if(this.p <= this.totalPasos){
+                        if(this.especial == false){
+                            //Crece de manera lineal
+                            this.x = easeLinear(this.p, this.x0, this.xf-this.x0, this.totalPasos);
+                            this.y = easeLinear(this.p, this.y0, this.yf-this.y0, this.totalPasos);
+                        }
+                        else{
+                            //Crece de manera sinusoidal
+                            this.x = easeInSine(this.p, this.x0, this.xf-this.x0, this.totalPasos);
+                            this.y = easeInSine(this.p, this.y0, this.yf-this.y0, this.totalPasos);
+                        }
+                        this.p++;
+                    }
+                    else{
+                        this.estado = 0;
+                        this.kill();
+                    }
+                }
+                this.dibujado = function(){
+                    
+                    contexto.strokeStyle = (this.especial == false) ? "#E00000" : "#30CD1E";
+                    contexto.beginPath();
+                    contexto.moveTo(this.x0, this.y0);
+                    contexto.lineTo(this.x-(this.xf-this.x0)*1/200, this.y-this.yf*1/200);
+                    contexto.closePath();
+                    contexto.stroke();
+
+                    contexto.strokeStyle = coloresRandom[colorActual];  //"#F8B8AB";
+                    contexto.beginPath();
+                    contexto.moveTo(this.x-(this.xf-this.x0)*1/200, this.y-this.yf*1/200);
+                    contexto.lineTo(this.x, this.y);
+                    contexto.stroke();
+                }
+            }
+
+            /*Tienen una posición inicial, la distancia que van a recorrer, la torre por la que sale el disparo, y el mundo en el que se encuentra*/
+            function constructorDisparo(x, y, dist, torreCercana, mundo){
+                this.mundo = mundo;
+
+                this.x0 = arrayDestinoMisiles[4*torreCercana].x;
+                this.y0 = arrayDestinoMisiles[4*torreCercana].y;
+
+                this.xf = x;
+                this.yf = y;
+
+                this.x = this.x0;
+                this.y = this.y0;
+
+                this.color = "#E00000";
+                this.speed = disparoSpeed;
+                //Paso por la que va la animacion del misil
+                this.p = 0;
+                this.estado = 1;
+                this.totalPasos = dist/this.speed
+
+                this.actualiza = function(){
+                    if(this.p <= this.totalPasos){
+                        //Crece de manera cuadrática
+                        this.x = easeInQuad(this.p, this.x0, this.xf-this.x0, this.totalPasos);
+                        this.y = easeInQuad(this.p, this.y0, this.yf-this.y0, this.totalPasos);
+                        this.p ++;
+                    }
+                    else{
+                        this.x = this.xf;
+                        this.y = this.yf;
+                        this.estado = 0;
+                        //Genera una bola de fuego
+                        this.mundo.arrayBolas[this.mundo.nBolas] = new constructorBola(this.xf, this.yf, this.mundo);
+                        this.mundo.nBolas++;
+                    }
+                }
+
+                this.dibujado = function(){
+                    //Punto de color en la cabeza del disparo
+                    contexto.beginPath();
+                    contexto.arc(this.x, this.y, 1, 0, 2*Math.PI, false);
+                    contexto.closePath();
+                    contexto.fillStyle = coloresRandom[colorActual];  //  "#B6A076"; 
+                    contexto.fill();
+                    contexto.fillStyle = "#000000";
+
+                    //Línea del disparo
+                    var anterior = contexto.lineWidth;
+                    contexto.lineWidth = 3;
+                    contexto.strokeStyle = "#0804fc";
+                    contexto.beginPath();
+                    contexto.moveTo(this.x0, this.y0);
+                    contexto.lineTo(this.x, this.y );
+                    contexto.stroke();
+                    contexto.lineWidth = anterior;
+
+                    //Cruz que indica a donde va a ir el disparo
+                    anterior = contexto.lineWidth;
+                    contexto.lineWidth = 0.8;
+                    contexto.strokeStyle = coloresRandom[colorActual]; 
+                    contexto.beginPath();
+                    var s = 6;
+                    contexto.moveTo(this.xf - s, this.yf - s);
+                    contexto.lineTo(this.xf + s, this.yf + s);
+                    contexto.moveTo(this.xf - s, this.yf + s);
+                    contexto.lineTo(this.xf + s, this.yf - s);
+                    contexto.stroke();
+                    contexto.lineWidth = anterior;
+                }
+            }
+    
+            //Constructor de los montones de munición
+            function constructorMunicionTorre(sprite, x, y, escala, mundo){
+                this.mundo = mundo;
+                this.sprite = sprite;
+                this.x = x;
+                this.y = y;
+                this.ancho = 55;
+                this.alto = 32;
+                this.escala = escala;
+                this.municion = [];
+                this.estado = 1;
+                this.puedeDisparar = false;
+
+                this.cargaAncho = 63;
+                this.cargaCantidad = 0;
+                this.cargaSpeed = enfriamiento/(1000/actps);
+                this.cargaP = 1;
+
+                //Se crea la pirámida de munición inicial. Si se acaba, se llamará al método "recargar()"
+                this.municion[0] = new constructorMunicion(this.sprite, x + this.ancho*3/6, y + 0, this.escala);
+                this.municion[1] = new constructorMunicion(this.sprite, x + this.ancho*2/6, y + this.alto*1/4, this.escala);
+                this.municion[2] = new constructorMunicion(this.sprite, x + this.ancho*4/6, y + this.alto*1/4, this.escala);
+                this.municion[3] = new constructorMunicion(this.sprite, x + this.ancho*1/6, y + this.alto*2/4, this.escala);
+                this.municion[4] = new constructorMunicion(this.sprite, x + this.ancho*3/6, y + this.alto*2/4, this.escala);
+                this.municion[5] = new constructorMunicion(this.sprite, x + this.ancho*5/6, y + this.alto*2/4, this.escala);
+                this.municion[8] = new constructorMunicion(this.sprite, x + this.ancho*0/6, y + this.alto*3/4, this.escala);
+                this.municion[6] = new constructorMunicion(this.sprite, x + this.ancho*2/6, y + this.alto*3/4, this.escala);
+                this.municion[7] = new constructorMunicion(this.sprite, x + this.ancho*4/6, y + this.alto*3/4, this.escala);
+                this.municion[9] = new constructorMunicion(this.sprite, x + this.ancho*6/6, y + this.alto*3/4, this.escala);
+                this.nMunicion = this.municion.length;
+
+                this.recargar = function(){
+                    for(var i = 0; i < this.municion.length; i++){
+                        this.municion[i].estado = 1;
+                    }
+                    this.nMunicion = this.municion.length;
+                    this.estado = 1;
+                    this.cargaP = 1;
+                    this.puedeDisparar = false;
+                }
+
+                //Al disparar, genera un disparo en el mundo desde una torre cercana que se le ha pasado
+                this.disparo = function(x, y, dist, torreCercana){
+                    if(this.nMunicion > 0){
+                        this.mundo.arrayDisparos[this.mundo.nDisparos] = new constructorDisparo(x, y, dist, torreCercana, this.mundo);
+                        this.mundo.nDisparos++;
+
+                        this.municion[this.nMunicion - 1].estado = 0;
+                        this.nMunicion--;
+
+                        this.puedeDisparar = false;
+                        this.cargaCantidad = 0;
+                        this.cargaP = 1;
+
+                        audioManager("disparo")
+                    }
+                    //Si se acaban las municiones, la torre se muere
+                    if(this.nMunicion == 0){
+                        this.estado = 0;
+                    }
+                }
+                this.kill = function(){
+                    for(var i = 0; i < this.municion.length; i++){
+                        this.municion[i].estado = 0;
+                    }
+                    this.nMunicion = 0;
+                    this.estado = 0;
+                }
+                this.actualiza = function(){
+                    if(this.cargaP <= this.cargaSpeed){
+                        this.cargaCantidad = Math.min(this.cargaAncho*this.cargaP/this.cargaSpeed, this.cargaAncho);
+                        this.cargaP++;
+                        if(this.cargaP == this.cargaSpeed){
+                            this.puedeDisparar = true;
+                        }
+                    }
+                    if(this.nMunicion == 0){
+                        this.cargaCantidad = 0;
+                    }
+                }
+                this.dibujado = function(){
+                    for(var i = 0; i < this.municion.length; i++){
+                        if(this.municion[i].estado == 1){
+                            this.municion[i].dibujado();
+                        }
+                    }
+
+                    if(this.nMunicion < 4 && this.nMunicion > 0){
+                        arraySprites[5].dibujado(this.x + 12, this.y + 50, 0.4)
+                    }
+                    else if(this.nMunicion == 0){
+                        arraySprites[6].dibujado(this.x + 12, this.y + 50, 0.4)
+                    }
+                    contexto.fillStyle = "#0804fc";
+                    contexto.fillRect(this.x, this.y + 43, this.cargaCantidad, 5);
+                }
+            }
+
+            //Clase munición para poder controlar su estado. Útil para decidir si se dibujará o no
+            function constructorMunicion(sprite, x, y, escala){
+                this.sprite = sprite;
+                this.estado = 1;
+                this.x = x;
+                this.y = y;
+                this.escala = escala;
+
+                //Dibujado
+                this.dibujado = function(){        
+                    this.sprite.dibujado(this.x, this.y, this.escala);
+                }
+            }
+
+
+            //Constructor ciudad
+            function constructorCiudad(sprite, x, y, escala){
+                //"this.sprite" es un objeto de constructorSprite
+                this.sprite = sprite;
+                
+                this.ancho = this.sprite.ancho;
+                this.alto = this.sprite.alto;
+                //Su posición en el contexto
+                this.x = x;
+                this.y = y;
+                this.escala = escala;
+
+                this.estado = 1;
+
+                //Dibujado
+                this.dibujado = function(){
+                    if(this.estado == 1){
+                        this.sprite.dibujado(this.x, this.y, this.escala);
+                    }
+                }
+            }
+
+            //Constructor marciano
+            function constructorEnemigo(sprite, escala, mundo){
+                this.mundo = mundo;
+                //"this.sprite" es un objeto de constructorSprite
+                this.sprite = sprite;
+                this.ancho = this.sprite.ancho;
+                this.alto = this.sprite.alto;
+                this.escala = escala;
+                if(this.sprite == arraySprites[7]){
+                    this.tipo = "marciano";
+                }
+                else{ this.tipo = "avion"; }
+
+                this.iz = -100;
+                this.der = maxX + 100;          
+
+                this.tocadoX;
+                this.tocadoY;
+                this.estado = 0;
+
+                //Dependiendo de si es el alien o el marciano, puede aparecer a la izquierda o solo la derecha, etc.
+                this.nacer = function(){
+                    altura = 100+Math.floor(Math.random()*80);
+                    this.y = altura;
+                    if(this.tipo == "marciano"){
+                        var random = Math.random();
+                        if(random < 0.5){
+                            this.x0 = this.iz;
+                            this.x = this.x0;
+                            this.xf = this.der;
+                            this.speed =  this.mundo.marcianoSpeed;
+                        }
+                        else{
+                            this.x0 = this.der;
+                            this.x = this.x0;
+                            this.xf = this.iz;
+                            this.speed = -1* this.mundo.marcianoSpeed;
+                        }
+                    }
+                    else{
+                        this.x0 = this.der;
+                        this.x = this.x0;
+                        this.xf = this.iz;
+                        this.speed = -1* this.mundo.avionSpeed;
+
+                        this.momentoBomba = Math.floor(Math.random()*((maxX-100)-100)+100);
+                        this.bombasTiradas = false;
+                    }
+                    this.estado = 1;
+                    audioManager("alien")
+                }
+
+                //Gestión de la colisión, dividiendo su sprite en una rejilla de puntos que comprobará si se encuentran dentro de la bola de fuego
+                this.colision = function(bola){
+                    var tocado = false;
+                    var coli = false;
+                    var x;
+                    var y;
+                    var tamRejilla = 5;
+                    for(var i = this.y; i <= this.y + this.alto; i += this.alto/tamRejilla){
+                        for(var j = this.x; j <= this.x + this.ancho; j += this.ancho/tamRejilla){
+                            if(colisionCircunferencia(j, i, bola.x, bola.y, bola.radius) == true){
+                                if(tocado == false){
+                                    tocado = true;
+                                    this.tocadoX = j;
+                                    this.tocadoY = i;
+                                    coli = true;
+                                }
+                            }
+                        }
+                    }
+                    return coli;
+                }
+
+                this.actualiza = function(){
+                    if(this.estado == 1){
+                        this.x += this.speed;
+                        if(this.x > maxX + 200 || this.x < 0-200){
+                            this.estado = 0;
+                            //this.x = -200;
+                        }
+                        //Si es el avion
+                        if(this.tipo == "avion"){
+                            if(Math.abs(this.x - this.momentoBomba) < 10){
+                                if(this.bombasTiradas == false){
+                                    var n = Math.floor(1+Math.random()*3);
+                                    for(var i = 0; i < n; i++){
+                                        this.mundo.arrayMisiles[ this.mundo.nMisiles] = new constructorMisil(this.x+20, this.y+20, undefined, this.mundo);
+                                        this.mundo.nMisiles++;
+                                        this.mundo.totalMisiles++;
+                                        this.mundo.contadorMisiles++;
+                                    }
+                                    avionDisparo.play();
+                                    this.bombasTiradas = true;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                //Dibujado
+                this.dibujado = function(){
+                    if(this.estado == 1){
+                        this.sprite.dibujado(this.x, this.y, this.escala);
+                    }
+                }
+            }
+
+                        
+            //Constructor de los sprites
+            function constructorSprite(imagenFuente, x, y, ancho, alto){			
+                var imagen = imagenFuente;	
+                this.x = x;
+                this.y = y;
+                this.ancho = ancho;
+                this.alto = alto;
+                //dibuja el sprite en el contexto dado, en la posición x,y
+                this.dibujado = function(x, y, escalado)
+                {
+                    contexto.drawImage(imagen, this.x, this.y, this.ancho, this.alto, x, y, this.ancho*escalado, this.alto*escalado);
+                }			
+		    }
+
+            /////////////////////////////////////////////////////////////////////////////////////////////
+            //_________________________________________________________________________________________//
+            /***********************             FUNCIONES              ********************************/
+            //_________________________________________________________________________________________//
+            /////////////////////////////////////////////////////////////////////////////////////////////
+
+            /*Función que genera los misiles que salen de la parte superior. Usa temporizadores para
+            llamarse recursivamente tras una cantidad de tiempo aleatoria*/
+            function generaMisilCielo(mundo){
+                var algunaTorreViva = false;
+                for(var i = 0; i < mundo.arrayTorresMunicion.length; i++){
+                    if(mundo.arrayTorresMunicion[i].estado == 1){ algunaTorreViva = true; }
+                }
+                var algunaCiudadViva = false;
+                for(var i = 0; i < mundo.arrayCiudades.length; i++){
+                    if(mundo.arrayCiudades[i].estado == 1){ algunaCiudadViva = true; }
+                }
+
+                if(mundo.contadorMisiles < mundo.totalMisiles && algunaTorreViva == true && algunaCiudadViva == true){
+                    var random = Math.floor(Math.random()*(tiempoActual-minTiempoMisil)+minTiempoMisil) * 100;  //Multiplicado por 1000 para pasar de milisegundos a segundos
+                    mundo.arrayMisiles[mundo.nMisiles] = new constructorMisil(undefined, undefined, undefined, mundo);
+                    mundo.nMisiles++;
+                    mundo.contadorMisiles++;
+                    console.log("Misil: " + mundo.contadorMisiles +", de " + mundo.totalMisiles)
+                    var temporizador = setTimeout(generaMisilCielo, random, mundo);
+                }
+
+                /*En el caso de que todas las torres estén sin munición, se descargan el resto de misiles
+                  que quedaban por ser lanzados del total de misiles establecido al comienzo del nivel.
+                  Cada misil va a una única ciudad decidida de manera aleatoria de entre las restantes que quedan*/
+                else if(mundo.contadorMisiles < mundo.totalMisiles && algunaTorreViva == false){
+                    setTimeout(lanzarMisilesRestantes, 4000, mundo);
+                }
+
+                //Si no quedan ciudades vivas las condiciones para que la partida haya terminado se ponen a verdaderas
+                else{ 
+                    mundo.contadorMisiles = mundo.totalMisiles;
+                }
+            }
+            /*En el caso de que todas las torres estén sin munición, se descargan el resto de misiles
+            que quedaban por ser lanzados del total de misiles establecido al comienzo del nivel.
+            Cada misil va a una única ciudad decidida de manera aleatoria de entre las restantes que quedan*/
+            function lanzarMisilesRestantes(mundo){
+                console.log("Descarga de misiles!")
+                var restantes =  mundo.totalMisiles -  mundo.contadorMisiles;
+                var ciudadesRestantes = 0;
+                for(var i = 0; i < mundo.arrayCiudades.length; i++){
+                    if(mundo.arrayCiudades[i].estado == 1){
+                        ciudadesRestantes++;
+                    }
+                }
+                var destinosVivos = [];
+                for(var i = 0; i <  mundo.arrayDestinosVivos.length; i++){
+                    destinosVivos[i] = i;
+                }
+                var d = 0;
+                var destinosEscogidos = [];
+                for(var i = 0; i < ciudadesRestantes; i++){
+                    if(restantes > 0){                            
+                        var destino = destinosVivos[Math.floor(Math.random()*destinosVivos.length)];
+
+                        //Gestión para que no se repita el mismo destino dos veces
+                        destinosEscogidos[d] = destino;
+                        d++;
+                        var n = 0;                            
+                        destinosVivos = [];
+                        for(var k = 0; k <  mundo.arrayDestinosVivos.length; k++){
+                            var distinto = true;
+                            for(var j = 0; j < destinosEscogidos.length; j++){
+                                if(k == destinosEscogidos[j]){
+                                    distinto = false;
+                                }                                    
+                            }
+                            if(distinto == true){
+                                destinosVivos[n] = k;
+                                n++;
+                            }
+                        }
+                        mundo.arrayMisiles[mundo.nMisiles] = new constructorMisil(undefined, undefined, destino, mundo);
+                        mundo.nMisiles++;
+                        mundo.contadorMisiles++;
+                        restantes--;
+                            
+                    }
+                }
+                    
+                mundo.contadorMisiles = mundo.totalMisiles;
+            }
+            
+
+            ////////////////////////////////////////////////////////////////
+            /////////                 DIBUJADO                     /////////
+            ////////////////////////////////////////////////////////////////
+
+            //Función de dibujado de todos los elementos usando "requestAnimationFrame"
+            function dibujado(){
+                if(graficosCargados == true){
+                    miMundo.dibujado();
+                    interfaz.dibujado();
+                }
+                //Se llama a sí misma de manera recursiva
+                requestAnimationFrame(dibujado);    
+            }
+
+            ////////////////////////////////////////////////////////////////
+            /////////               ACTUALIZADO                    /////////
+            ////////////////////////////////////////////////////////////////
+
+            //Función que actualiza los distintos objetos de manera repetida dado un tiempo determinado: "actps"
+            //Inicializada en la sección de Inicialización
+            function actualiza(){
+                //Se actualizan todos los objetos que contiene el mundo
+                miMundo.actualiza();
+
+                //Comprueba si ha terminado la partida
+                if(comprobarFinalizado(miMundo) && finalizado == false){
+                    miMundo.ciudadesSupervivientes = 0;
+                    for(var i = 0; i < miMundo.arrayCiudades.length; i++){
+                        if(miMundo.arrayCiudades[i].estado == 1){
+                            miMundo.ciudadesSupervivientes++;
+                        }
+                    }
+                    finalizado = true;
+                    setTimeout(contarPuntos, 50, miMundo);
+                }
+               
+                //Actualizar el color de las bolas de fuego y otros elementos que cambian de color
+                colorActual = Math.floor(Math.random()*coloresRandom.length);
+            }
+
+            //Función que comprueba si ha finalizado la partida
+            function comprobarFinalizado(mundo){
+                //Si se han lanzado todos los misiles y no quedan misiles vivos además de que el marciano y avión estén muertos, se termina la partida
+                if(mundo.contadorMisiles == mundo.totalMisiles && mundo.arrayMisiles.length == 0 && mundo.marciano.estado == 0 
+                && mundo.avion.estado == 0){
+                    return true;
+                }
+            }
+
+
+            /////////////////////////////////////////////
+            /////////   CARGA DE LOS SPRITES    /////////
+            /////////////////////////////////////////////
+
+            //Carga todos los sprites y los almacena en un array de sprites
+            function cargaImagen()
+            {
+                var imagenSuelo = new Image();
+                imagenSuelo.src = "media/suelo.png";
+                    
+                imagenSuelo.onload = function()
+                {
+                    //Suelo largo, ID 0
+                    arraySprites[spriteID] = new constructorSprite(imagenSuelo, 0, 315, 890, 103);
+                    spriteID++;
+                    //Suelo pequeño, ID 1
+                    arraySprites[spriteID] = new constructorSprite(imagenSuelo, 0, 138, 140, 103);
+                    spriteID++;
+
+                    //Segunda carga de imágenes después de que cargue la primera obligatoriamente
+                    var imagenAzul = new Image();
+                    imagenAzul.src = "media/azul.png";
+                    imagenAzul.onload = function()
+                    {
+
+                        //Municion, ID 2
+                        arraySprites[spriteID] = new constructorSprite(imagenAzul, 384, 262, 12, 20);
+                        spriteID++;
+                        //Mouse, ID 3
+                        arraySprites[spriteID] = new constructorSprite(imagenAzul, 467, 262, 29, 29);
+                        spriteID++;
+                        //Ciudades, ID 4
+                        arraySprites[spriteID] = new constructorSprite(imagenAzul, 514, 252, 60, 20);
+                        spriteID++;
+
+                        //tercera carga de imágenes después de que cargue la segunda obligatoriamente
+                        var imagenEstado = new Image();
+                        imagenEstado.src = "media/estado.png";
+                        imagenEstado.onload = function(){
+                            //"Low", ID 5
+                            arraySprites[spriteID] = new constructorSprite(imagenEstado, 460, 280, 552-460, 28);
+                            spriteID++;
+                            //"Out", ID 6
+                            arraySprites[spriteID] = new constructorSprite(imagenEstado, 560, 280, 648-560, 28);
+                            spriteID++;
+
+                            //tercera carga de imágenes después de que cargue la segunda obligatoriamente
+                            var imagenEnemigos = new Image();
+                            imagenEnemigos.src = "media/enemigos.png";
+                            imagenEnemigos.onload = function(){
+                                //Marciano, ID 7
+                                arraySprites[spriteID] = new constructorSprite(imagenEnemigos, 248, 184, 292-248, 236-184);
+                                spriteID++;
+                                //Avión, ID 8
+                                //arraySprites[spriteID] = new constructorSprite(imagenEnemigos, 265, 236, 271-265, 280-236);
+                                arraySprites[spriteID] = new constructorSprite(imagenEnemigos, 308, 236, 64, 280-236);
+                                spriteID++;
+
+                                //Una vez cargados todos los sprites y almacenados, puede comenzar la primera partida
+                                miMundo = new constructorMundo();
+                                interfaz = new constructorInterfaz(miMundo);
+                                cargaCiudades(miMundo);
+                                cargarMontonesMunicion(miMundo, 0.74)
+                                cargaEnemigos(miMundo);
+                                graficosCargados = true;
+                            }
+                        }
+                    }
+                }
+            }
+            function cargaCiudades(mundo){
+                //Carga del array de ciudades
+                var escala = 0.74;
+                mundo.arrayCiudades[0] = new constructorCiudad(arraySprites[4], 108, 622, escala);
+                mundo.arrayCiudades[1] = new constructorCiudad(arraySprites[4], 188, 625, escala);
+                mundo.arrayCiudades[2] = new constructorCiudad(arraySprites[4], 259, 628, escala);
+                mundo.arrayCiudades[3] = new constructorCiudad(arraySprites[4], 416, 622, escala);
+                mundo.arrayCiudades[4] = new constructorCiudad(arraySprites[4], 510, 613, escala);
+                mundo.arrayCiudades[5] = new constructorCiudad(arraySprites[4], 593, 625, escala);
+            }
+            function cargarMontonesMunicion(mundo, escala){
+                //Se crean los tres montones con sus respectivas posiciones
+                mundo.arrayTorresMunicion[0] = new constructorMunicionTorre(arraySprites[2], 32, 609, escala, mundo)
+                mundo.arrayTorresMunicion[1] = new constructorMunicionTorre(arraySprites[2], 335, 609, escala, mundo)
+                mundo.arrayTorresMunicion[2] = new constructorMunicionTorre(arraySprites[2], 678, 609, escala, mundo)
+            }
+            function cargaEnemigos(mundo){
+                mundo.marciano = new constructorEnemigo(arraySprites[7], 0.74, mundo);
+                mundo.avion = new constructorEnemigo(arraySprites[8], 0.74, mundo);
+            }
+
+            /////////////////////////////////////////////
+            /////////    FUNCIONES DEL AUDIO    /////////
+            /////////////////////////////////////////////
+
+            //Función que llena los arrays de audios para poder ejecutarlos uno seguido de otro aunque el anterior no haya terminado
+            function llenarArrayAudio(array, audio){
+                for(var i = 0; i < 15; i++){
+                    array[i] = audio.cloneNode(true);
+                }
+            }
+
+            //Dado un nombre del audio, ejecuta el audio
+            function audioManager(nombre){
+                switch(nombre){
+                    case "explosion":
+                        sonidosExplosion[indiceExplosion].volume = 0.6;
+                        sonidosExplosion[indiceExplosion].play();
+                        indiceExplosion++;
+                        if(indiceExplosion == sonidosExplosion.length){ indiceExplosion = 0}
+                        break;
+
+                    case "disparo":
+                        sonidosDisparo[indiceDisparo].volume = 0.7;
+                        sonidosDisparo[indiceDisparo].play();
+                        indiceDisparo++;
+                        if(indiceDisparo == sonidosDisparo.length){ indiceDisparo = 0}
+                        break;
+
+                    case "alien":
+                        sonidosAlien[indiceAlien].volume = 0.6;
+                        sonidosAlien[indiceAlien].play();
+                        indiceAlien++;
+                        if(indiceAlien == sonidosAlien.length){ indiceAlien = 0}
+                        break;
+
+                    case "muereDestino":
+                        sonidosMuerteDestino[indiceMuerteDestino].volume = 0.7;
+                        sonidosMuerteDestino[indiceMuerteDestino].play();
+                        indiceMuerteDestino++;
+                        if(indiceMuerteDestino == sonidosMuerteDestino.length){ indiceMuerteDestino = 0}
+                        break;
+
+                    case "tocado": 
+                        sonidosTocado[indiceTocado].volume = 0.6;
+                        sonidosTocado[indiceTocado].play();
+                        indiceTocado++;
+                        if(indiceTocado == sonidosTocado.length){ indiceTocado = 0;}
+                        break;
+                }
+            }
+
+            /////////////////////////////////////////////////
+            /////////   GESTIÓN DE LA PUNTUACIÓN    /////////
+            /////////////////////////////////////////////////
+
+            /*Va a recorrer todas las ciudades y torres de munición con un poco de tiempo entre comprobación 
+            y comprobación para que quede bonito al finalizar la partida*/
+            function contarPuntos(mundo){
+                var nC = 1;
+                var nM = 1;
+                var tiempo = 150;
+                for(var i = 0; i < mundo.arrayCiudades.length; i++){
+                    if(mundo.arrayCiudades[i].estado == 1){
+                        setTimeout(puntosCiudad, nC*tiempo, mundo);
+                        nC++;
+                    }
+                }
+                for(var i = 0; i < mundo.arrayTorresMunicion.length; i++){
+                    if(mundo.arrayTorresMunicion[i].estado == 1){
+                        setTimeout(puntosMunicion, (nC+nM)*tiempo, mundo);
+                        nM++;
+                    }
+                }
+                setTimeout(continuar, (nC+nM)*tiempo, mundo)
+            }
+
+            //Recorre las ciudades vivas y da puntos
+            function puntosCiudad(mundo){
+                var matada = false;
+                for(var i = 0; i < mundo.arrayCiudades.length; i++){
+                    if(mundo.arrayCiudades[i].estado == 1 && matada == false){
+                        mundo.arrayCiudades[i].estado = 0;
+                        interfaz.puntuacion += interfaz.ciudad;
+                        matada = true;
+                    }
+                }
+                audioManager("tocado")
+            }
+            
+            //Recorre la munición viva y da puntos
+            function puntosMunicion(mundo){
+                var matada = false;
+                for(var i = 0; i < mundo.arrayTorresMunicion.length; i++){
+                    if(mundo.arrayTorresMunicion[i].estado == 1 && matada == false){
+                        interfaz.puntuacion += mundo.arrayTorresMunicion[i].nMunicion * interfaz.municion;
+                        mundo.arrayTorresMunicion[i].kill();
+                        matada = true;
+                    }
+                }
+                audioManager("tocado")
+            }
+
+            //Si se ha superado la punuación, se guarda
+            function mejorPuntuacion(){
+                if(interfaz.puntuacion > interfaz.puntuacionMaxima){
+                    interfaz.puntuacionMaxima = interfaz.puntuacion;
+                }
+            }
+
+            function continuar(mundo){
+                //Listo para poder continuar
+                comenzado = false;
+                reiniciable = true;
+                if(mundo.ciudadesSupervivientes == 0){
+                    interfaz.texto2 = "You lost";
+                }
+                interfaz.texto = "Press ENTER to continue";
+
+            }
+            ////////////////////////////////////////////
+            /////////    GESTIÓN DE EVENTOS    /////////
+            ////////////////////////////////////////////
+
+            //Funcion que al hacer click creas una bola de fuego
+            function manejaRaton(e){
+                var mundo = miMundo;
+                if(comenzado != false){
+                    //Se calcula en qué ubicación del canvas se ha hecho click
+                    var x = clamp((e.pageX+12.24 - lienzoPos.left), 0, maxX);
+                    var y = clamp((e.pageY+11.8 - lienzoPos.top), 0, maxY);
+                    var menorDistancia;
+                    var auxDistancia;
+                    var auxTorre = mundo.arrayTorresMunicion[0];
+                    var torreDisparo;
+
+                    /*Se gestiona desde qué torre saldrá el disparo, teniendo en cuenta si está en enfriamiento,
+                    si está viva y si es la torre más cercana al dstino elegido*/
+                    if(auxTorre.nMunicion > 0 && auxTorre.puedeDisparar == true){
+                        menorDistancia = distancia(auxTorre.x + auxTorre.ancho/2, auxTorre.y, x, y);
+                        torreDisparo = 0;
+                    }
+                    else{ menorDistancia = 1000; }
+                    for(var i = 1; i < 3; i++){
+                        auxTorre = mundo.arrayTorresMunicion[i];
+                        if(auxTorre.nMunicion > 0 && auxTorre.puedeDisparar == true){
+                            auxDistancia = distancia(auxTorre.x + auxTorre.ancho/2, auxTorre.y, x, y);
+                            if(auxDistancia < menorDistancia){
+                                menorDistancia = auxDistancia;
+                                torreDisparo = i;
+                            }
+                        }
+                    }
+                    if(torreDisparo !== undefined){
+                        //Se genera un disparo después de haberse decididio desde qué torre sale el disparo
+                        mundo.arrayTorresMunicion[torreDisparo].disparo(x, y, menorDistancia, torreDisparo);
+                    }
+                }
+            }
+
+            //Al pulsar "Enter", si se puede iniciar o reiniciar la partida, se hace
+            function manejaTeclado(e){
+                var mundo = miMundo;
+                if(e.key == "Enter" && comenzado == false && reiniciable == false){
+                    comenzado = true;
+                    //Generación de misiles
+                    setTimeout(generaMisilCielo, 3000, mundo);
+                    interfaz.texto = "";
+                    interfaz.texto2 = "";
+                }
+                else if(e.key == "Enter" && comenzado == false && reiniciable == true){
+                    reiniciar(mundo);
+                    comenzado = true;
+                    //Generación de misiles
+                    setTimeout(generaMisilCielo, 3000, mundo);
+                    interfaz.texto = "";
+                    interfaz.texto2 = "";
+                }
+                if(e.key == "s" && comenzado == true){
+                    console.log(e.key);
+                    mundo.onda.activar();
+                }
+                
+            }
+
+            //////////////////////////////////////////////////////////
+            /////////    REINICIO Y AUMENTO DE DIFICULTAD    /////////
+            //////////////////////////////////////////////////////////
+
+            //Función que reinicia la partida y en caso de haber superado el record, se aumenta la dificultad
+            function reiniciar(mundo){
+                //finalizado = false, para que el bucle que comprueba si ha finalizado pueda seguir comprobando
+                finalizado = false;
+                mundo.contadorMisiles = 0;
+
+                //Si se supera la anterior puntuación aumenta la dificultad
+                if(mundo.ciudadesSupervivientes > 0){
+                    aumentoDificultad(mundo);
+                }
+                else{
+                    mejorPuntuacion();
+                    tiempoActual = maxTiempoMisil;
+                    misilSpeed = misilMinSpeed;
+                    mundo.totalMisiles = minMisiles;
+                    mundo.marcianoSpeed = 1.15*misilSpeed;
+                    mundo.avionSpeed = 0.8*misilSpeed;
+                    nivel = 1;
+                    interfaz.puntuacion = 0;
+                    interfaz.textoNivel = "LVL " + nivel;
+                    mundo.onda.activada = false;
+                }
+                //interfaz.puntuacion = 0;
+
+                //Se regeneran las torres y las ciudades
+                for(var i = 0; i < mundo.arrayCiudades.length; i++){
+                    mundo.arrayCiudades[i].estado = 1;
+                }
+                for(var i = 0; i < mundo.arrayTorresMunicion.length; i++){
+                    mundo.arrayTorresMunicion[i].recargar();
+                }
+
+                //Se define cuándo saldrá el marciano y el avión en esta nueva partida
+                mundo.marcianoMisil = Math.floor(Math.random()*(mundo.totalMisiles-1)+1);
+                mundo.marcianoAparecido = false;
+                mundo.avionMisil = Math.floor(Math.random()*(mundo.totalMisiles-1)+1);
+                mundo.avionAparecido = false;
+            }
+
+            //Función llamada cada vez que se supera el record anterior
+            function aumentoDificultad(mundo){
+                //Ajuste de la velocidad y cantidad de los misiles y su tiempo entre uno y otro
+                tiempoActual = Math.max(tiempoActual - 3, topeTiempo);
+                misilSpeed = Math.min(misilSpeed + 1, topeSpeed);
+                mundo.totalMisiles = Math.min(minMisiles + nivel, maxMisiles);
+
+
+                //Ajuste de las nuevas velocidades del alien y el avión
+                mundo.marcianoSpeed = 1.15*misilSpeed;
+                mundo.avionSpeed = 0.8*misilSpeed;
+
+                //Aumento de la puntuación
+                interfaz.marciano += 5;
+
+                //Sube un nivel
+                nivel++;
+                interfaz.textoNivel = "LVL " + nivel;
+            }
+
+            /////////////////////////////////////////////
+            /////////   FUNCIONES MATEMÁTICAS   /////////
+            /////////////////////////////////////////////
+
+            //Función que acota un valor entre un mínimo y un máximo
+            function clamp(num, min, max){
+	            return Math.min(Math.max(num, min), max)
+            }
+
+            //Función que devuelve una distancia entre dos coordenadas
+            function distancia(x1, y1, x2, y2){
+                return Math.sqrt(Math.pow((x2-x1),2) + Math.pow((y2-y1),2));
+            }
+
+            //Función que devuelve si un punto se encuentra dentro de una circunferencia de radio R
+            function colisionCircunferencia(x, y, a, b, R){
+                if(Math.pow(x-a, 2) + Math.pow(y-b, 2) < Math.pow(R, 2)){
+                    return true;
+                }
+            }
+        </script>
+    </body>
+</html>

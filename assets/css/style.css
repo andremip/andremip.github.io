@@ -173,10 +173,11 @@ section {
 /* PROFILE SECTION */
 
 #profile {
+    position: relative;
     display: flex;
     justify-content: center;
     gap: 5rem;
-    height: 80vh;
+    height: 77vh;
 
     background-color: pink;
     padding: 2rem;
@@ -233,6 +234,7 @@ section {
     display: flex;
     justify-content: center;
     gap: 1rem;
+    margin-top: 20px;
 }
 
 .btn {
@@ -339,6 +341,13 @@ section {
     height: 90%;
 }
 
+.project-video {
+    border-radius: 2rem;
+    width: 240px; /* Ancho del video */
+        height: 426px; /* Altura del video */
+    margin: 0 auto;
+}
+
 .project-title {
     margin: 1rem;
     color: black;
@@ -394,7 +403,7 @@ article .icon {
     display: flex;
     justify-content: center;
     flex-direction: column;
-    height: 70vh;
+    height: 30vh;
 }
 
 .contact-info-upper-container {

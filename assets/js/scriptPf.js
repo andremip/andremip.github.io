@@ -13,7 +13,9 @@ document.querySelectorAll('.nav-link').forEach(link => {
 
         if (targetElement) {
             const targetPosition = targetElement.offsetTop;
-            const adjustedPosition = targetPosition - (window.innerHeight * 0.15)
+            var desplacamiento = 0.15
+            if (targetId == "contact") desplacamiento = 0.08
+            const adjustedPosition = targetPosition - (window.innerHeight * desplacamiento)
 
             // Desplázate suavemente hacia la posición ajustada
             window.scrollTo({

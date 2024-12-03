@@ -1,0 +1,7 @@
+canvas { 
+	border:2px solid #ffd941; background-color: #000000;
+}
+html{
+	cursor: url("../media/mouse.png"),
+	auto;
+}       

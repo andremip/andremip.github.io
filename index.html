@@ -13,7 +13,7 @@
 
 	<nav id="desktop-nav">
 		<div id="home">
-			<a href="#home" class="logo">André Pérez</a>
+			<a href="/" class="logo">André Pérez</a>
 		</div>
 		<div>
 			<ul class="nav-links">
@@ -27,7 +27,7 @@
 
 	<nav id="hamburger-nav">
 		<div id="home">
-			<a href="#home" class="logo">André Pérez</a>
+			<a href="/" class="logo">André Pérez</a>
 		</div>
 		<div class="hamburger-menu">
 			<div class="hamburger-icon" onclick="toggleMenu()">
@@ -49,49 +49,53 @@
 			<img src="images/profile-poke.png" alt="André Pérez profile picture">
 		</div>
 		<div class="section__text">
-			<p class="section__text__p1">Hello, I'm</p>
+			<p class="section__text__p1">Hi! I'm</p>
 			<h1 class="title">André Pérez</h1>
-			<p class="section__text__p2">Game developer</p>
+			<p class="section__text__p2">Game Developer and Programmer</p>
 			<div class="button-container">
 				<button class="btn btn-color-2" onclick="window.open('assets/curriculum.pdf')">
 					Download CV
 				</button>
-				<button class="btn btn-color-1" onclick="location.href='./#contact'">
+				<button class="btn btn-color-1" onclick="scrollToSection('#contact')">
 					Contact
 				</button>
 
 				<div id="socials-container">
-					<img src="images/linkedin.png" alt="My LinkedIn profile" class="icon"
-						onclick="location.href='http://LinkedIn.com/'">
-					<img src="images/github.png" alt="My Github profile" class="icon"
-						onclick="location.href='http://Github.com/'">
-					<img src="images/youtube.png" alt="My YouTube channel" class="icon"
-						onclick="location.href='https://www.youtube.com/channel/UCgjVzZrA34O2fQ3B3ICtK_g'">
-
+					<a href='https://www.linkedin.com/in/andr%C3%A9-miguel-p%C3%A9rez-s%C3%A1nchez-13a03832a/' target="_self">
+						<img src="images/linkedin.png" alt="My LinkedIn profile" class="icon">
+					</a>
+					<a href='https://github.com/andremip' target="_self">
+						<img src="images/github.png" alt="My Github profile" class="icon">
+					</a>
+					<a href='https://www.youtube.com/channel/UCgjVzZrA34O2fQ3B3ICtK_g' target="_self">
+						<img src="images/youtube.png" alt="My YouTube channel" class="icon">
+					</a>				
 				</div>
-
 			</div>
 		</div>
+		<img src="images/arrow.png" alt="arrow-icon" class="icon arrow" onclick="scrollToSection('#about')">
 	</section>
 
 	<section id="about">
 		<p class="section__text__p1">Get To Know More</p>
 		<h1 class="title">About Me</h1>
 		<div class="section-container">
-			<div class="section__pic-container">
-				<img src="images/profile-poke.png" alt="Profile picture" class="about-pic">
-			</div>
 			<div class="about-details-copntainer">
 				<div class="about-containers">
 					<div class="details-container">
-						<img src="images/youtube.png" alt="Experience icon" class="icon">
-						<h3>Experience</h3>
-						<p>2+ years <br />Game Development</p>
+						<a href="https://www.urjc.es/universidad/calidad/632-diseno-y-desarrollo-de-videojuegos">
+							<img src="images/urjclogo.png" alt="URJC logo" class="icon">
+						</a>
+						<h3>Game Design and Development</h3>
+						<p>Universidad Rey Juan Carlos, Spain<br />2021 - Present</p>
 					</div>
 					<div class="details-container">
-						<img src="images/linkedin.png" alt="Education icon" class="icon">
-						<h3>Education</h3>
-						<p>Game Design degree <br />Biocrea</p>
+						<a href="https://portal3.ipb.pt/index.php/en/guiaects/degree-programmes/bachelor-programmes-licenciado-degree/course?cod_escola=3045&cod_curso=8309">
+							<img src="images/ipblogo.png" alt="IPB logo" class="icon">
+							<img src="images/erasmuslogo.png" alt="Erasmus logo" class="icon">
+						</a>
+						<h3>Game Design - Erasmus (English)</h3>
+						<p>Instituto Politécnico de Bragança, Portugal <br />September 2023 - January 2024</p>
 					</div>
 				</div>
 				<div class="text-container">
@@ -115,46 +119,60 @@
 			<div class="about-containers">
 				<div class="details-container color-container">
 					<div class="article-container">
-						<img src="images/profile-poke.png" alt="Project 1" class="project-img">
+						<img src="images/nosense01.png" alt="No Sense" class="project-img">
 					</div>
-					<h2 class="experience-sub-title project-title">Project One</h2>
+					<h2 class="experience-sub-title project-title">No Sense - Game Jam Game Scholars</h2>
+					<div class="text-container">
+						<p>Small game I made for a Game Jam in 2023</p>
+					</div>
 					<div class="btn-container">
-						<button class="btn btn-color-2 project-btn" onclik="location.href='https://github.com/'">
-							Github
+						<button class="btn btn-color-2 project-btn"
+							onclik="location.href='https://andremip.itch.io/no-sense'">
+							itch.io
 						</button>
 						<button class="btn btn-color-2 project-btn" onclik="location.href='https://github.com/'">
-							Live Demo
+							YouTube
 						</button>
 					</div>
 				</div>
 				<div class="details-container color-container">
 					<div class="article-container">
-						<img src="images/profile-poke.png" alt="Project 1" class="project-img">
+						<img src="images/windsimulation02.jpg" alt="Solid animation" class="project-img">
 					</div>
-					<h2 class="experience-sub-title project-title">Project Two</h2>
+					<h2 class="experience-sub-title project-title">Deformable solid affected by wind</h2>
+					<div class="text-container">
+						<p>3D deformable solid using mass spring</p>
+					</div>
 					<div class="btn-container">
 						<button class="btn btn-color-2 project-btn" onclik="location.href='https://github.com/'">
-							Github
-						</button>
-						<button class="btn btn-color-2 project-btn" onclik="location.href='https://github.com/'">
-							Live Demo
+							YouTube
 						</button>
 					</div>
 				</div>
 				<div class="details-container color-container">
 					<div class="article-container">
-						<img src="images/profile-poke.png" alt="Project 1" class="project-img">
+						<iframe class="project-video" width="225" height="400" src="https://www.youtube.com/embed/HRdhHRH1a_w" title="Flying chicken destroys a bridge killing its 10 brothers, RIP" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 					</div>
-					<h2 class="experience-sub-title project-title">Project Three</h2>
+					<h2 class="experience-sub-title project-title">3Ds Max Animation</h2>
+					<div class="text-container">
+						<p>3D Animation I made using 3DsMax</p>
+					</div>
+				</div>
+				<div class="details-container color-container">
+					<div class="article-container">
+						<img src="images/missileCommand02.jpg" alt="Missile Command" class="project-img">
+					</div>
+					<h2 class="experience-sub-title project-title">Missile Command</h2>
+					<div class="text-container">
+						<p>Small javascript game</p>
+					</div>
 					<div class="btn-container">
 						<button class="btn btn-color-2 project-btn" onclik="location.href='https://github.com/'">
-							Github
-						</button>
-						<button class="btn btn-color-2 project-btn" onclik="location.href='https://github.com/'">
-							Live Demo
+							Open
 						</button>
 					</div>
 				</div>
+				
 			</div>
 		</div>
 		<img src="images/arrow.png" alt="arrow-icon" class="icon arrow" onclick="scrollToSection('#skills')">
@@ -245,12 +263,12 @@
 		<h1 class="title">Contact Me</h1>
 		<div class="contact-info-upper-container">
 			<div class="contact-info-container">
-				<img src="images/youtube.png" alt="Email icon" class="icon contact-icon">
+				<img src="images/gmailicon.png" alt="Email icon" class="icon contact-icon">
 				<p><a href="mailto:examplemail@gmail.com">andremiguelperez@gmail.com</a></p>
 			</div>
 			<div class="contact-info-container">
 				<img src="images/linkedin.png" alt="LinkedIn icon" class="icon contact-icon">
-				<p><a href="https://www.LinkedIn.com">LinkedIn</a></p>
+				<p><a href="https://www.linkedin.com/in/andr%C3%A9-miguel-p%C3%A9rez-s%C3%A1nchez-13a03832a/">LinkedIn</a></p>
 			</div>
 		</div>
 	</section>
