@@ -55,9 +55,9 @@ nav, .nav-links {
 }
 
 .nav-links {
-    gap: 2rem;
+    gap: 1.8rem;
     list-style: none;
-    font-size: 1.5rem;
+    font-size: 1.3rem;
 }
 
 #desktop-nav .nav-links{
@@ -345,6 +345,7 @@ section {
 
 #projects {
     position: relative;
+    margin-top: 5vh;
 }
 
 .color-container {
